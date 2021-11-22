@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
+
 	comModel "gfast/app/common/model"
 	"gfast/app/common/service"
 	"gfast/app/system/dao"
@@ -18,7 +20,6 @@ import (
 	"github.com/gogf/gf/util/gconv"
 	"github.com/gogf/gf/util/grand"
 	"github.com/mssola/user_agent"
-	"reflect"
 )
 
 type sysUser struct {
@@ -215,6 +216,23 @@ func (s *sysUser) GetAllMenus() (menus []UserMenus, err error) {
 	return
 }
 
+func (s *sysUser) GetAllMenusList() (menus []UserMenus, err error) {
+	//获取所有开启的菜单
+	var allMenus []*model.SysAuthRuleInfoRes
+	allMenus, err = Rule.GetIsMenuStatusList()
+	if err != nil {
+		return
+	}
+	menus = make([]UserMenus, len(allMenus))
+	for k, v := range allMenus {
+		var menu UserMenu
+		menu = s.setMenuData(menu, v)
+		menus[k] = UserMenus{UserMenu: menu}
+	}
+
+	return
+}
+
 func (s *sysUser) GetAdminMenusByRoleIds(roleIds []uint) (menus []UserMenus, err error) {
 	//获取角色对应的菜单id
 	enforcer, e := service.Casbin.GetEnforcer()
@@ -245,6 +263,39 @@ func (s *sysUser) GetAdminMenusByRoleIds(roleIds []uint) (menus []UserMenus, err
 		}
 	}
 	menus = s.GetMenusTree(menus, 0)
+	return
+}
+
+func (s *sysUser) GetAdminMenusByRoleIdsList(roleIds []uint) (menus []UserMenus, err error) {
+	//获取角色对应的菜单id
+	enforcer, e := service.Casbin.GetEnforcer()
+	if e != nil {
+		err = e
+		return
+	}
+	menuIds := map[int64]int64{}
+	for _, roleId := range roleIds {
+		//查询当前权限
+		gp := enforcer.GetFilteredPolicy(0, fmt.Sprintf("%d", roleId))
+		for _, p := range gp {
+			mid := gconv.Int64(p[1])
+			menuIds[mid] = mid
+		}
+	}
+	//获取所有开启的菜单
+	allMenus, err := Rule.GetIsMenuStatusList()
+	if err != nil {
+		return
+	}
+	menus = make([]UserMenus, 0, len(allMenus))
+	for _, v := range allMenus {
+		if _, ok := menuIds[gconv.Int64(v.Id)]; gstr.Equal(v.Condition, "nocheck") || ok {
+			var roleMenu UserMenu
+			roleMenu = s.setMenuData(roleMenu, v)
+			menus = append(menus, UserMenus{UserMenu: roleMenu})
+		}
+	}
+
 	return
 }
 

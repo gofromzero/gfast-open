@@ -88,3 +88,11 @@
         SecretKey = "填写您的SecretKey"
     [upload.local] #本地上传配置
         UpPath = "/pub_upload/" #上传路径
+    [upload.minio] #Minio配置
+        Endpoint =    "127.0.0.1:9500"
+        RawUrl =    "https://oss.space-iot.net/fr-file"
+        AccessKeyID =  "WYHHP8PG41T99LEMV8BP"
+        SecretAccessKey = "VOBD1ZZcyncoDqMK"
+        UseSSL = false
+        BucketName = "fr-file"
+        UpPath =    "/upload/"

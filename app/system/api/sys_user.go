@@ -201,6 +201,60 @@ func (c *user) GetRouters(r *ghttp.Request) {
 	c.SusJsonExit(r, adminMenus)
 }
 
+// GetRoutersList 获取用户菜单非tree
+func (c *user) GetRoutersList(r *ghttp.Request) {
+	//获取用户信息
+	userInfo := c.GetCurrentUser(r.Context())
+	//是否超管
+	isSuperAdmin := false
+	userId := userInfo.Id
+	//获取无需验证权限的用户id
+	service.SysUser.NotCheckAuthAdminIds.Iterator(func(v interface{}) bool {
+		if gconv.Uint64(v) == userId {
+			isSuperAdmin = true
+			return false
+		}
+		return true
+	})
+	//获取用户角色信息
+	allRoles, err := service.SysRole.GetRoleList()
+	if err != nil {
+		c.FailJsonExit(r, err.Error())
+	}
+	roles, e := service.SysUser.GetAdminRole(userId, allRoles)
+	if e != nil {
+		c.FailJsonExit(r, e.Error())
+	}
+	name := make([]string, len(roles))
+	roleIds := make([]uint, len(roles))
+	for k, v := range roles {
+		name[k] = v.Name
+		roleIds[k] = v.Id
+	}
+	var menuList []service.UserMenus
+	//获取菜单信息
+	if isSuperAdmin {
+		//超管获取所有菜单
+		menuList, err = service.SysUser.GetAllMenusList()
+	} else {
+		menuList, err = service.SysUser.GetAdminMenusByRoleIdsList(roleIds)
+	}
+	if err != nil {
+		c.FailJsonExit(r, e.Error())
+	}
+	if menuList == nil {
+		menuList = make([]service.UserMenus, 0)
+	}
+	adminMenus := make([]service.UserMenus, 0, len(menuList))
+	//过滤非后台模块的菜单
+	for _, v := range menuList {
+		if v.ModuleType == "sys_admin" {
+			adminMenus = append(adminMenus, v)
+		}
+	}
+	c.SusJsonExit(r, adminMenus)
+}
+
 func (c *user) ResetUserPwd(r *ghttp.Request) {
 	var req *model.SysUserResetPwdReq
 	//获取参数
